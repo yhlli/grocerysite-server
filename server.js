@@ -16,6 +16,7 @@ const multer = require('multer');
 const uploadMiddleware = multer({ dest: 'uploads/' });
 const fs = require('fs');
 const https = require('https');
+const CategoryList = require('./models/CategoryList');
 const corsOptions = {
     origin: (origin, callback) => {
         //if (["http://localhost:5173"].includes(origin) || !origin) {
@@ -409,6 +410,26 @@ app.get('/:id/grocerylist', authenticate, async (req, res) => {
     }
 });
 
+app.get('/:id/categorylist', authenticate, async (req, res) => {
+    const { id } = req.params;
+    const categories = await CategoryList.findOne({ author: id }).populate("items");
+    const groceryDummy = await GroceryList.create({
+        author: req.infoId,
+        name: '',
+        quantity: '',
+    })
+    if (categories === null) {
+        await CategoryList.create({
+            author: req.infoId,
+            name: '',
+            items: groceryDummy,
+        })
+        res.json("ok");
+    } else {
+        res.json(categories);
+    }
+});
+
 app.post('/:id/grocerylist', uploadMiddleware.single('file'), authenticate, async (req, res) => {
     const { id } = req.params;
     const { groceryItem, groceryQuantity } = req.body;
@@ -421,6 +442,18 @@ app.post('/:id/grocerylist', uploadMiddleware.single('file'), authenticate, asyn
     }
     await gList.save();
     res.json({ name: groceryItem, quantity: groceryQuantity });
+});
+
+app.post('/:id/categorylist', uploadMiddleware.single('file'), authenticate, async (req, res) => {
+    const { id } = req.params;
+    const { categoryItem } = req.body;
+    const cList = await CategoryList.findOne({ author: id });
+    const existsItem = cList.items.find(item => item.name === categoryItem);
+    if (!existsItem) {
+        cList.name = categoryItem;
+    }
+    await cList.save();
+    res.json({ name: categoryItem });
 });
 
 app.delete('/:id/grocerylist', authenticate, async (req, res) => {
