@@ -19,8 +19,8 @@ const https = require('https');
 const CategoryList = require('./models/CategoryList');
 const corsOptions = {
     origin: (origin, callback) => {
-        if (["http://localhost:5173"].includes(origin) || !origin) {
-        //if (["https://grocerysite-client.onrender.com"].includes(origin) || !origin) {
+        //if (["http://localhost:5173"].includes(origin) || !origin) {
+        if (["https://grocerysite-client.onrender.com"].includes(origin) || !origin) {
             callback(null, true)
         } else {
             callback(new Error('Not allowed by CORS'))
