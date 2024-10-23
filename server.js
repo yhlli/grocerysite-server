@@ -16,7 +16,6 @@ const multer = require('multer');
 const uploadMiddleware = multer({ dest: 'uploads/' });
 const fs = require('fs');
 const https = require('https');
-const CategoryList = require('./models/CategoryList');
 const corsOptions = {
     origin: (origin, callback) => {
         if (["http://localhost:5173"].includes(origin) || !origin) {
