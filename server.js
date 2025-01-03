@@ -18,8 +18,8 @@ const fs = require('fs');
 const https = require('https');
 const corsOptions = {
     origin: (origin, callback) => {
-        if (["http://localhost:5173"].includes(origin) || !origin) {
-        //if (["https://grocerysite-client.onrender.com"].includes(origin) || !origin) {
+        if (["https://luke.lilinart.com", "http://luke.lilinart.com", "https://grocerysite-client.onrender.com"].includes(origin) || !origin) {
+        //if (["http://localhost:5173"].includes(origin) || !origin) {
             callback(null, true)
         } else {
             callback(new Error('Not allowed by CORS'))
@@ -34,16 +34,36 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static(__dirname + '/uploads'));
 
+/* try {
+    mongoose.connect(process.env.DATABASE_URI).then(()=> {
+        console.log('Connected to mongoose');
+        const privateKey = fs.readFileSync('/etc/letsencrypt/live/luke.lilinart.com/privkey.pem', 'utf8');
+        const certificate = fs.readFileSync('/etc/letsencrypt/live/luke.lilinart.com/fullchain.pem', 'utf8');
+        const credentials = {
+            key: privateKey,
+            cert: certificate
+        };
+
+        const httpsServer = https.createServer(credentials, app);
+        httpsServer.listen(8080, () => {
+            console.log('HTTPS server is listening on port 8080');
+        });
+    });
+    
+} catch (error) {
+    console.log(error);
+} */
+
 try {
     mongoose.connect(process.env.DATABASE_URI);
     console.log('Connected to mongoose');
 } catch (error) {
     console.log(error);
 }
-
 app.listen(8080, ()=>{
     console.log("Server started on port 8080");
 });
+
 
 const authenticate = async (req,res,next)=>{
     const accessToken = req.header('Authorization')?.split(' ')[1];
@@ -448,6 +468,32 @@ app.put('/:id/grocerylistquantity', authenticate, async (req, res) => {
         return res.status(404).json({ message: 'Item not found in the list' });
     }
     gList.items[index].quantity += Number(num);
+    await gList.save();
+    res.json('ok');
+});
+
+app.get('/:id/grocerylistcheck', authenticate, async(req, res)=>{
+    const { id } = req.params;
+    const { name } = req.query;
+    const gList = await GroceryList.findOne({ author: id });
+    const index = gList.items.findIndex(item => item.name === name);
+    if (index === -1) {
+        return res.status(404).json({ message: 'Item not found in the list' });
+    }
+    const response = gList.items[index].checked;
+    res.json(response);
+});
+
+app.put('/:id/grocerylistcheck', authenticate, async(req, res)=>{
+    const { id } = req.params;
+    const { name } = req.query;
+    const boo = req.body.isChecked;
+    const gList = await GroceryList.findOne({ author: id });
+    const index = gList.items.findIndex(item => item.name === name);
+    if (index === -1) {
+        return res.status(404).json({ message: 'Item not found in the list' });
+    }
+    gList.items[index].checked = boo;
     await gList.save();
     res.json('ok');
 });
