@@ -9,6 +9,8 @@ const PostSchema = new Schema({
     author:{type:Schema.Types.ObjectId, ref:'User'},
     uname:String,
     views:Number,
+    newsBot:{type: Boolean, default: false },
+    pageUrl:{type: String, default: ''},
 }, {
     timestamps: true,
 });

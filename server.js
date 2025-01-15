@@ -34,6 +34,10 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static(__dirname + '/uploads'));
 
+const { fetchNews } = require('./fetchNews');
+
+fetchNews();
+
 /* try {
     mongoose.connect(process.env.DATABASE_URI).then(()=> {
         console.log('Connected to mongoose');
@@ -152,6 +156,7 @@ app.post('/post', uploadMiddleware.single('file'), authenticate, async (req, res
         author: req.infoId,
         uname: req.infoUsername,
         views: 0,
+        newsBot: false,
     });
     res.json(postDoc);
 });
@@ -198,7 +203,7 @@ app.get('/post', async (req, res) => {
 
     Posts.forEach(function (postItem) {
         var co = postItem.cover;
-        if (!fs.existsSync(co)) postItem.cover = 'uploads\\default.jpg';
+        if (!postItem.newsBot && !fs.existsSync(co)) postItem.cover = 'uploads\\default.jpg';
     })
     res.json({
         data: Posts,
@@ -214,7 +219,7 @@ app.get('/post/:id', async (req, res) => {
     await postDoc.updateOne({
         views: viewCount + 1,
     });
-    if (!fs.existsSync(postDoc.cover)) postDoc.cover = 'uploads\\default.jpg';
+    if (!postDoc.newsBot && !fs.existsSync(postDoc.cover)) postDoc.cover = 'uploads\\default.jpg';
     const userId = req.query.user;
     let favPosts = [];
     if (userId) {
@@ -297,7 +302,7 @@ app.get('/user/post/:id', async (req, res) => {
             .skip((page - 1) * offset);
         favPosts.forEach(function (postItem) {
             var co = postItem.cover;
-            if (!fs.existsSync(co)) postItem.cover = 'uploads\\default.jpg';
+            if (!postItem.newsBot && !fs.existsSync(co)) postItem.cover = 'uploads\\default.jpg';
         })
         res.json({
             data: favPosts,
@@ -312,7 +317,7 @@ app.get('/user/post/:id', async (req, res) => {
             .skip((page - 1) * offset);
         userPosts.forEach(function (postItem) {
             var co = postItem.cover;
-            if (!fs.existsSync(co)) postItem.cover = 'uploads\\default.jpg';
+            if (!postItem.newsBot && !fs.existsSync(co)) postItem.cover = 'uploads\\default.jpg';
         })
         res.json({
             data: userPosts,
@@ -497,3 +502,4 @@ app.put('/:id/grocerylistcheck', authenticate, async(req, res)=>{
     await gList.save();
     res.json('ok');
 });
+
