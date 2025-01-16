@@ -18,8 +18,8 @@ const fs = require('fs');
 const https = require('https');
 const corsOptions = {
     origin: (origin, callback) => {
-        if (["https://luke.lilinart.com", "http://luke.lilinart.com", "https://grocerysite-client.onrender.com"].includes(origin) || !origin) {
-        //if (["http://localhost:5173"].includes(origin) || !origin) {
+        //if (["https://luke.lilinart.com", "http://luke.lilinart.com", "https://grocerysite-client.onrender.com"].includes(origin) || !origin) {
+        if (["http://localhost:5173"].includes(origin) || !origin) {
             callback(null, true)
         } else {
             callback(new Error('Not allowed by CORS'))

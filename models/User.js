@@ -5,6 +5,8 @@ const Post = require('./Post');
 const UserSchema = Schema({
     username: { type: String, required: true, min: 4, unique: true },
     password: { type: String, required: true },
+    confirmationToken: String,
+    confirmationEmailSent: { type: Boolean, default: false, },
     favoritePosts: {
         type: [mongoose.Schema.Types.ObjectId],
         ref: Post,

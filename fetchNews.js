@@ -2,9 +2,15 @@ const cron = require('node-cron');
 const Post = require('./models/Post');
 const User = require('./models/User');
 const fetchNews = async()=>{
-    const categories = ['technology', 'science'];
+    const categories = ['technology', 'science', 'general'];
     const allNews = [];
     const user = await User.findOne({ username: 'newsbot' });
+    if (!user){
+        await User.create({
+            username: 'newsbot',
+            password: 'password',
+        });
+    }
     for (const category of categories) {
         const url = 'https://newsapi.org/v2/top-headlines?' +
             'country=us&' +
@@ -54,6 +60,6 @@ const fetchNews = async()=>{
 const schedule = '0 0 9,17 * * *';
 const job = cron.schedule(schedule, fetchNews);
 job.start();
-console.log('Cron job started for news');
+console.log('Cron job started for news ' + new Date());
 
 module.exports = { fetchNews };
