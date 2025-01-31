@@ -16,10 +16,12 @@ const multer = require('multer');
 const uploadMiddleware = multer({ dest: 'uploads/' });
 const fs = require('fs');
 const https = require('https');
+const crypto = require('crypto');
+const sendEmail = require('./utils/email');
 const corsOptions = {
     origin: (origin, callback) => {
-        //if (["https://luke.lilinart.com", "http://luke.lilinart.com", "https://grocerysite-client.onrender.com"].includes(origin) || !origin) {
-        if (["http://localhost:5173"].includes(origin) || !origin) {
+        if (["https://luke.lilinart.com", "http://luke.lilinart.com", "https://grocerysite-client.onrender.com"].includes(origin) || !origin) {
+        //if (["http://localhost:5173"].includes(origin) || !origin) {
             callback(null, true)
         } else {
             callback(new Error('Not allowed by CORS'))
@@ -35,10 +37,14 @@ app.use(cookieParser());
 app.use('/uploads', express.static(__dirname + '/uploads'));
 
 const { fetchNews } = require('./fetchNews');
+const { deleteUnverified } = require('./deleteUnverified');
 
 fetchNews();
+deleteUnverified();
 
-/* try {
+/* const clientAddress = 'https://luke.lilinart.com';
+const serverAddress = 'https://luke.lilinart.com:8080';
+try {
     mongoose.connect(process.env.DATABASE_URI).then(()=> {
         console.log('Connected to mongoose');
         const privateKey = fs.readFileSync('/etc/letsencrypt/live/luke.lilinart.com/privkey.pem', 'utf8');
@@ -58,6 +64,8 @@ fetchNews();
     console.log(error);
 } */
 
+const clientAddress = 'http://localhost:5173'
+const serverAddress = 'http://localhost:8080';
 try {
     mongoose.connect(process.env.DATABASE_URI);
     console.log('Connected to mongoose');
@@ -94,7 +102,7 @@ const authenticate = async (req,res,next)=>{
         }
     }
     next();
-}
+};
 
 app.get('/profile', authenticate, async (req,res)=>{
     if(req.infoId){
@@ -103,31 +111,140 @@ app.get('/profile', authenticate, async (req,res)=>{
     } else{
         res.json(null);
     }
-})
+});
 
 app.post('/register', async (req,res)=>{
-    const {username,password} = req.body;
+    const {username,password, email} = req.body;
     try {
+        const verificationToken = crypto.randomBytes(20).toString('hex');
         const userDoc = await User.create({
             username,
-            password: bcrypt.hashSync(password, salt)
+            password: bcrypt.hashSync(password, salt),
+            email,
+            verificationToken,
         });
+        const verificationUrl = `${serverAddress}/verify-email?token=${verificationToken}`;
+        await sendEmail(email, 'Verify Your Email', `Please click the following link to verify your email: ${verificationUrl}`);
         res.json({userDoc});
     } catch (e) {
         console.log(e);
         res.status(400).json(e);
     }
-})
+});
+
+app.get('/verify-email', async (req,res)=>{
+    const { token } = req.query;
+    try {
+        const user = await User.findOne({ verificationToken: token });
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid token' });
+        }
+        user.verified = true;
+        user.verificationToken = undefined;
+        await user.save();
+        res.redirect(`${clientAddress}/verify-email?verified=true`);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error verifying email' });
+    }
+});
+
+app.post('/resend-verification', async (req,res)=>{
+    const { email } = req.body;
+    try {
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        if (user.verified){
+            return res.status(400).json({ message: 'Email already verified' });
+        }
+        const verificationToken = crypto.randomBytes(20).toString('hex');
+        user.verificationToken = verificationToken;
+        await user.save();
+        const verificationUrl = `${serverAddress}/verify-email?token=${verificationToken}}`;
+        await sendEmail(email, 'Verify Your Email', `Please click on the following link to verify your email: ${verificationUrl}`);
+        res.json({ message: 'Verification email resent' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error resending verification email' });
+    }
+});
 
 app.post('/login', async (req,res)=>{
     const {username,password} = req.body;
-    const userDoc = await User.findOne({username});
+    var userDoc = await User.findOne({username});
+    if (!userDoc){
+        userDoc = await User.findOne({ email: username });
+    }
     if (userDoc && bcrypt.compareSync(password, userDoc.password)){
+        if (!userDoc.verified) {
+            return res.status(401).json({ message: 'Email not verified' });
+        }
         const accessToken = jwt.sign({ username,id: userDoc._id }, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'});
         const refreshToken = jwt.sign({ username, id: userDoc._id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '1d' });
         res.json({ accessToken, refreshToken, id:userDoc._id, username });
     } else{
         res.status(401).json({ message: 'Invalid credentials' });
+    }
+});
+
+app.post('/forgot-password', async(req,res)=>{
+    const { email } = req.body;
+    try {
+        const user = await User.findOne({ email });
+        if (!user){
+            return res.status(404).json({ message: 'User not found' });
+        }
+        const resetToken = crypto.randomBytes(20).toString('hex');
+        user.resetPasswordToken = resetToken;
+        user.resetPasswordExpires = Date.now() + 3600000;
+        await user.save();
+        const resetUrl = `${serverAddress}/reset-password?token=${resetToken}`;
+        await sendEmail(email, 'Password Reset', `Please click the following link to reset your password: ${resetUrl}`);
+        res.json({ message: 'Password reset email sent' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error sending password reset email' });
+    }
+});
+
+app.get('/reset-password', async(req,res)=>{
+    const { token } = req.query;
+    try {
+        const user = await User.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() },
+        });
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired token' });
+        }
+        res.redirect(`${clientAddress}/reset-password?token=${token}`);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error resetting password' });
+    }
+});
+
+app.post('/reset-password', async(req,res)=>{
+    const { token, password } = req.body;
+    try {
+        const user = await User.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() },
+        });
+        if (!user){
+            return res.status(400).json({ message: 'Invalid or expired token' });
+        }
+        const hashedPassword = await bcrypt.hashSync(password, salt);
+        user.password = hashedPassword;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+        res.json({ message: 'Password reset successful' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error resetting password' });
     }
 })
 

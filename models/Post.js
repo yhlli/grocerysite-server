@@ -17,4 +17,15 @@ const PostSchema = new Schema({
 
 const PostModel = model('Post', PostSchema);
 
+/* async function deleteNewsBotPosts() {
+    try {
+        const result = await PostModel.deleteMany({ newsBot: true });
+        console.log(`Deleted ${result.deletedCount} posts with newsBot true.`);
+    } catch (error) {
+        console.error('Error deleting posts:', error);
+    }
+}
+
+deleteNewsBotPosts(); */
+
 module.exports = PostModel;
