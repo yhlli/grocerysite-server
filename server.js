@@ -42,7 +42,7 @@ const { deleteUnverified } = require('./deleteUnverified');
 fetchNews();
 deleteUnverified();
 
-/* const clientAddress = 'https://luke.lilinart.com';
+const clientAddress = 'https://luke.lilinart.com';
 const serverAddress = 'https://luke.lilinart.com:8080';
 try {
     mongoose.connect(process.env.DATABASE_URI).then(()=> {
@@ -62,9 +62,9 @@ try {
     
 } catch (error) {
     console.log(error);
-} */
+}
 
-const clientAddress = 'http://localhost:5173'
+/* const clientAddress = 'http://localhost:5173'
 const serverAddress = 'http://localhost:8080';
 try {
     mongoose.connect(process.env.DATABASE_URI);
@@ -74,7 +74,7 @@ try {
 }
 app.listen(8080, ()=>{
     console.log("Server started on port 8080");
-});
+}); */
 
 
 const authenticate = async (req,res,next)=>{
@@ -134,6 +134,9 @@ app.post('/register', async (req,res)=>{
 
 app.get('/verify-email', async (req,res)=>{
     const { token } = req.query;
+    if (!token) {
+        res.status(500).json({ message: 'No token' });
+    }
     try {
         const user = await User.findOne({ verificationToken: token });
         if (!user) {
@@ -151,6 +154,9 @@ app.get('/verify-email', async (req,res)=>{
 
 app.post('/resend-verification', async (req,res)=>{
     const { email } = req.body;
+    if  (!email) {
+        res.status(500).json({ message: 'No email provided' });
+    }
     try {
         const user = await User.findOne({ email });
         if (!user) {
@@ -191,6 +197,9 @@ app.post('/login', async (req,res)=>{
 
 app.post('/forgot-password', async(req,res)=>{
     const { email } = req.body;
+    if (!email){
+        res.status(500).json({ message: 'No email provided '});
+    }
     try {
         const user = await User.findOne({ email });
         if (!user){

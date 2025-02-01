@@ -9,6 +9,8 @@ const fetchNews = async()=>{
         await User.create({
             username: 'newsbot',
             password: 'password',
+            email: 'dummy@gmail.com',
+            verified: true,
         });
     }
     for (const category of categories) {
