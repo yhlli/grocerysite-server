@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Post = require('./models/Post');
 const User = require('./models/User');
+const e = require('cors');
 const fetchNews = async()=>{
     const categories = ['technology', 'science', 'general'];
     const allNews = [];
@@ -34,6 +35,14 @@ const fetchNews = async()=>{
     for (const news of allNews){
         const existingPost = await Post.findOne({ title: news.title });
         if (!existingPost){
+            let publishedAt;
+            if (news.publishedAt){
+                publishedAt = new Date(news.publishedAt);
+            } else if (news.date) {
+                publishedAt = new Date(news.date);
+            } else {
+                publishedAt = new Date();
+            }
             await Post.create({
                 title: news.title,
                 summary: news.description,
@@ -44,6 +53,7 @@ const fetchNews = async()=>{
                 views: 0,
                 newsBot: true,
                 pageUrl: news.url,
+                createdAt: publishedAt,
             });
         }
     }
@@ -59,8 +69,17 @@ const fetchNews = async()=>{
         }
     }
 }
-const schedule = '0 0 9,17 * * *';
+const deleteAllNewsBotPosts = async () => {
+    try {
+        const deleteResult = await Post.deleteMany({ newsBot: true });
+        console.log(`Deleted ${deleteResult.deletedCount} newsBot posts.`);
+    } catch (error) {
+        console.error("Error deleting newsBot posts:", error);
+    }
+};
+const schedule = '0 0 14,22 * * *';
 const job = cron.schedule(schedule, fetchNews);
+//deleteAllNewsBotPosts();
 job.start();
 console.log('Cron job started for news ' + new Date());
 

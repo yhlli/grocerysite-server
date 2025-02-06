@@ -42,7 +42,7 @@ const { deleteUnverified } = require('./deleteUnverified');
 fetchNews();
 deleteUnverified();
 
-const clientAddress = 'https://luke.lilinart.com';
+/* const clientAddress = 'https://luke.lilinart.com';
 const serverAddress = 'https://luke.lilinart.com:8080';
 try {
     mongoose.connect(process.env.DATABASE_URI).then(()=> {
@@ -62,9 +62,9 @@ try {
     
 } catch (error) {
     console.log(error);
-}
+} */
 
-/* const clientAddress = 'http://localhost:5173'
+const clientAddress = 'http://localhost:5173'
 const serverAddress = 'http://localhost:8080';
 try {
     mongoose.connect(process.env.DATABASE_URI);
@@ -74,7 +74,7 @@ try {
 }
 app.listen(8080, ()=>{
     console.log("Server started on port 8080");
-}); */
+});
 
 
 const authenticate = async (req,res,next)=>{
@@ -314,6 +314,7 @@ app.put('/post', uploadMiddleware.single('file'), authenticate, async (req, res)
 app.get('/post', async (req, res) => {
     const page = parseInt(req.query.page);
     const sortBy = parseInt(req.query.sort);
+    const showNews = req.query.showNews === 'true';
     const sortCriteria = {
         1: { createdAt: -1 },
         2: { createdAt: 1 },
@@ -321,21 +322,32 @@ app.get('/post', async (req, res) => {
         4: { views: 1, createdAt: -1 },
     };
     const offset = 20;
-    const Posts = await Post.find()
-        .populate('author', ['username'])
-        .sort(sortCriteria[sortBy])
-        .limit(offset)
-        .skip((page - 1) * offset);
-
-    Posts.forEach(function (postItem) {
-        var co = postItem.cover;
-        if (!postItem.newsBot && !fs.existsSync(co)) postItem.cover = 'uploads\\default.jpg';
-    })
-    res.json({
-        data: Posts,
-        totalCount: await Post.countDocuments(),
+    let query = {};
+    if (!showNews) {
+        query.newsBot = false;
     }
-    );
+    try {
+        const totalCount = await Post.countDocuments(query);
+        const Posts = await Post.find(query)
+            .populate('author', ['username'])
+            .sort(sortCriteria[sortBy])
+            .limit(offset)
+            .skip((page - 1) * offset);
+
+        Posts.forEach(function (postItem) {
+            var co = postItem.cover;
+            if (!postItem.newsBot && !fs.existsSync(co)) postItem.cover = 'uploads\\default.jpg';
+        })
+        res.json({
+            data: Posts,
+            totalCount: totalCount,
+        }
+        );
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ error: 'Error fetching posts' });
+    }
+    
 });
 
 app.get('/post/:id', async (req, res) => {
